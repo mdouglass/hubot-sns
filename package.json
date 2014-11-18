@@ -1,0 +1,41 @@
+{
+  "name": "hubot-sns",
+  "description": "Hubot script for interacting with AWS Simple Notification Service",
+  "version": "0.1.0",
+  "homepage": "https://github.com/mdouglass/hubot-sns",
+  "author": "Matthew Douglass <msed.npm@douglasstribe.com>",
+  "license": "MIT",
+
+  "keywords": [
+    "hubot",
+    "hubot-scripts",
+    "aws",
+    "sns"
+  ],
+
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mdouglass/hubot-sns.git"
+  },
+
+  "bugs": {
+    "url": "https://github.com/mdouglass/hubot-sns/issues"
+  },
+
+  "dependencies": {
+    "coffee-script": "~1.6"
+  },
+
+  "devDependencies": {
+    "mocha": "*",
+    "chai": "*",
+    "sinon-chai": "*",
+    "sinon": "*"
+  },
+
+  "main": "index.coffee",
+
+  "scripts": {
+    "test": "script/test"
+  }
+}
