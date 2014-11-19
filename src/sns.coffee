@@ -19,42 +19,17 @@
 # Author:
 #   mdouglass
 
+{ inspect } = require 'util'
+{ verifySignature } = require './sns-message-verify'
+
 Options =
   url:     process.env.HUBOT_SNS_URL or '/hubot/sns'
-
-class Listener
-  constructor: (field, regex, callback) ->
-    @field = field
-    @regex = regex
-    @callback = callback
-
-  call: (msg) ->
-    if match = msg[@field].match @regex
-      message =
-        topic:     msg.TopicArn
-        subject:   msg.Subject
-        message:   msg.Message
-        messageId: msg.MessageId
-      @callback message
-      true
-    else
-      false
 
 class SNS
   constructor: (robot) ->
     @robot = robot
-    @listeners = []
 
     @robot.router.post Options.url, (req, res) => @onMessage req, res
-
-  subject: (regex, callback) ->
-    @listeners.push new Listener 'Subject', regex, callback
-
-  message: (regex, callback) ->
-    @listeners.push new Listener 'Message', regex, callback
-
-  topic: (regex, callback) ->
-    @listeners.push new Listener 'TopicArn', regex, callback
 
   onMessage: (req, res) ->
     chunks = []
@@ -63,33 +38,55 @@ class SNS
       chunks.push(chunk)
 
     req.on 'end', () =>
-      res.end()
-
       req.body = JSON.parse(chunks.join(''))
+      verifySignature req.body, () ->
+        @deliver req, res
+      , () ->
+        @fail req, res
 
-      @deliver req if @validate req
+  fail: (req, res) ->
+    res.writeHead(500)
+    res.end('Internal Error')
 
-  validate: (req) ->
-    # Needs to validate that this message is a properly formatted and sign Amazon SNS message
-    true
+  deliver: (req, res) ->
+    res.writeHead(200)
+    res.end('OK')
 
-  deliver: (req) ->
-    @robot.logger.info req.body
+    @robot.logger.debug "SNS Message: #{inspect req.body}"
     if req.body.Type == 'SubscriptionConfirmation'
-      @confirmSubscription req.body
+      @confirmSubscribe req.body
+    else if req.body.Type == 'UnsubscribeConfirmation'
+      @confirmUnsubscribe
     else if req.body.Type == 'Notification'
       @notify req.body
 
-  confirmSubscription: (msg) ->
+  confirmSubscribe: (msg) ->
+    @robot.emit 'sns:subscribe:request', msg
+
     @robot.http(msg.SubscribeURL).get() (err, res, body) =>
+      if not error
+        @robot.emit 'sns:subscribe:success', msg
+      else
+        @robot.emit 'sns:subscribe:failure', err
       return
 
+  confirmUnsubscribe: (msg) ->
+    @robot.emit 'sns:unsubscribe:request', msg
+    @robot.emit 'sns:unsubscribe:success', msg
+
   notify: (msg) ->
-    for listener in @listeners
-      listener.call msg
+    message =
+      topic:     msg.TopicArn.split(':').reverse()[0]
+      topicArn:  msg.TopicArn
+      subject:   msg.Subject
+      message:   msg.Message
+      messageId: msg.MessageId
+
+    @robot.emit 'sns:notification', message
+    @robot.emit 'sns:notification:' + message.topic, message
 
 module.exports = (robot) ->
 
-  robot.sns = new SNS robot
+  sns = new SNS robot
 
-  robot.emit 'sns:ready', robot.sns
+  robot.emit 'sns:ready', sns
