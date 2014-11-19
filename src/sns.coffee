@@ -20,7 +20,7 @@
 #   mdouglass
 
 { inspect } = require 'util'
-{ verifySignature } = require './sns-message-verify'
+{ verifySignature } = require './support/sns-message-verify'
 
 Options =
   url:     process.env.HUBOT_SNS_URL or '/hubot/sns'
@@ -39,16 +39,18 @@ class SNS
 
     req.on 'end', () =>
       req.body = JSON.parse(chunks.join(''))
-      verifySignature req.body, () ->
-        @deliver req, res
-      , () ->
-        @fail req, res
+      verifySignature req.body, (error) =>
+        if error
+          @robot.logger.warning "#{error}\n#{inspect req.body}"
+          @fail req, res
+        else
+          @process req, res
 
   fail: (req, res) ->
     res.writeHead(500)
     res.end('Internal Error')
 
-  deliver: (req, res) ->
+  process: (req, res) ->
     res.writeHead(200)
     res.end('OK')
 
@@ -64,7 +66,7 @@ class SNS
     @robot.emit 'sns:subscribe:request', msg
 
     @robot.http(msg.SubscribeURL).get() (err, res, body) =>
-      if not error
+      if not err
         @robot.emit 'sns:subscribe:success', msg
       else
         @robot.emit 'sns:subscribe:failure', err
