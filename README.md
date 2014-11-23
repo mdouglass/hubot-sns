@@ -20,8 +20,6 @@ module.exports = (robot) ->
       Subject:    #{msg.subject}
       Message:    #{msg.message}
     """
-    
-  robot.on "sns:notification:<
 ```
 
 Handle a specific topic (named mytopic in this example):
@@ -37,6 +35,4 @@ module.exports = (robot) ->
       Subject:    #{msg.subject}
       Message:    #{msg.message}
     """
-    
-  robot.on "sns:notification:<
 ```
